@@ -1,0 +1,17 @@
+resolver: lts-14.27
+
+packages:
+- tictactoe-server
+- tictactoe-client
+
+extra-deps:
+- HsYAML-0.2.1.0
+- HsYAML-aeson-0.2.0.0
+- process-1.6.10.0
+- mtl-2.2.2
+- transformers-0.5.6.2
+- servant-0.16.2
+
+flags: {}
+
+extra-package-dbs: []

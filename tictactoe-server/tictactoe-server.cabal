@@ -1,0 +1,44 @@
+name:                tictactoe-server
+version:             0.1.0.0
+synopsis:            Synopsis for task 0
+description:         Task 0 for FP ITMO course
+
+homepage:            https://github.com/fp-homework/tree/master/hw0#readme
+license:             MIT
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2019 Author name here
+
+category:            Web
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+tested-with:         GHC == 8.0.1
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Models
+                     , Game
+  ghc-options:         -Wall
+  build-depends:       base >= 4.9 && < 5
+                     , mtl
+                     , transformers
+                     , split
+                     , random
+                     , aeson
+  default-language:    Haskell2010
+
+executable tictactoe-server
+  hs-source-dirs:      app
+  main-is:             App.hs
+  other-modules:       Routes
+  ghc-options:         -Wall -Werror -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , tictactoe-server
+                     , servant
+                     , servant-server
+                     , aeson
+                     , wai
+                     , warp
+  default-language:    Haskell2010
