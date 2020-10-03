@@ -27,6 +27,7 @@ library
                      , split
                      , random
                      , aeson
+                     , stm-containers
   default-language:    Haskell2010
 
 executable tictactoe-server
@@ -38,7 +39,11 @@ executable tictactoe-server
                      , tictactoe-server
                      , servant
                      , servant-server
+                     , servant-auth
+                     , servant-auth-server
+                     , stm-containers
                      , aeson
+                     , bytestring
                      , wai
                      , warp
   default-language:    Haskell2010
