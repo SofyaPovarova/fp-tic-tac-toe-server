@@ -4,19 +4,25 @@ module Main where
 
 import Servant
 import Network.Wai.Handler.Warp
+import StmContainers.Map (new, Map)
+import GHC.Conc (STM)
 import Routes
-import Servant.Auth.Server (defaultJWTSettings, defaultCookieSettings, generateKey, JWT)
+import Control.Monad.Trans.State (evalStateT)
 
 main :: IO ()
 main = do
   let port = 8081
-
-  myKey <- generateKey
-  let jwtCfg = defaultJWTSettings myKey
-  let cfg = defaultCookieSettings :. jwtCfg :. EmptyContext
+ 
+  let initialState = AppState newMap
       
   putStrLn $ "========\nStarting server on localhost:" ++ show port
-  run port $ serveWithContext api cfg (server defaultCookieSettings jwtCfg)
+  run port $ app initialState
   
-api :: Proxy (API '[JWT])
-api = Proxy
+nt :: AppState -> AppM a -> Handler a
+nt state appM = evalStateT appM state
+
+app :: AppState -> Application
+app state = serve api $ server state
+  
+newMap :: STM (Map String String)
+newMap = new

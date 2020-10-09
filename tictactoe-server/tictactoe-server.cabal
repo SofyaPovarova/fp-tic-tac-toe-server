@@ -20,6 +20,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Models
                      , Game
+                     , Routes
   ghc-options:         -Wall
   build-depends:       base >= 4.9 && < 5
                      , mtl
@@ -27,20 +28,25 @@ library
                      , split
                      , random
                      , aeson
+                     , servant
+                     , servant-server
                      , stm-containers
+                     , http-api-data
+                     , bytestring
+                     , text
+                     , uuid
   default-language:    Haskell2010
 
 executable tictactoe-server
   hs-source-dirs:      app
   main-is:             App.hs
-  other-modules:       Routes
   ghc-options:         -Wall -Werror -threaded -rtsopts -with-rtsopts=-N
   build-depends:       base
                      , tictactoe-server
+                     , mtl
+                     , transformers
                      , servant
                      , servant-server
-                     , servant-auth
-                     , servant-auth-server
                      , stm-containers
                      , aeson
                      , bytestring

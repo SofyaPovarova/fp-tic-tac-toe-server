@@ -1,7 +1,6 @@
 resolver: lts-15.0
 packages:
 - tictactoe-server
-- tictactoe-client
 
 extra-deps:
 - Cabal-3.0.2.0
