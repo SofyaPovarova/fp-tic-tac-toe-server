@@ -4,25 +4,23 @@ module Main where
 
 import Servant
 import Network.Wai.Handler.Warp
-import StmContainers.Map (new, Map)
-import GHC.Conc (STM)
+import StmContainers.Map (Map, newIO)
+import GHC.Conc (newTVar, atomically)
 import Routes
-import Control.Monad.Trans.State (evalStateT)
+import Models
 
 main :: IO ()
 main = do
   let port = 8081
  
-  let initialState = AppState newMap
+  sessionMap <- newMap >>= atomically . newTVar
+  let initialState = AppState sessionMap
       
   putStrLn $ "========\nStarting server on localhost:" ++ show port
   run port $ app initialState
   
-nt :: AppState -> AppM a -> Handler a
-nt state appM = evalStateT appM state
-
 app :: AppState -> Application
 app state = serve api $ server state
   
-newMap :: STM (Map String String)
-newMap = new
+newMap :: IO (Map String GameSession)
+newMap = newIO

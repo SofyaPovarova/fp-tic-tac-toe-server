@@ -1,39 +1,52 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 
-module Models
-  ( Cell(..)
-  , GameSession
-  , Field
-  )
-where
+module Models where
 
+import Lens.Micro.TH
 import GHC.Generics
 import Data.Aeson
-import Servant
-import Data.Text
+import qualified Data.Map as Map
 
-type Field = [[Cell]]
 
-data Cell = X | O | Empty
+data Cell = X | O
   deriving (Eq, Generic)
-
-instance FromHttpApiData Cell where
-  parseQueryParam :: Text -> Either Text Cell
-  parseQueryParam text =
-    case (unpack text) of
-      "x" -> Right X
-      "o" -> Right O
-      "random" -> Right X
-      s -> Left $ pack $ "Unknown parameter: " ++ s
 
 instance Show Cell where
   show X = "x"
   show O = "o"
-  show Empty = " "
 
 instance ToJSON Cell
 
-data GameSession = GameSession
-  { field :: Field
+
+data Field = Field
+  { _fieldCells :: Map.Map (Int, Int) Cell
+  , _fieldSize :: Int
   }
+  
+makeLenses ''Field
+
+instance ToJSON Field where
+  toJSON Field{..} = object
+    [ "field" .= _fieldCells
+    , "size" .= _fieldSize
+    ] 
+
+
+data GameSession = GameSession
+  { _gsField :: Field
+  , _gsPlayerRole :: Cell
+  } deriving (Generic)
+
+
+instance ToJSON GameSession where
+  toJSON GameSession{..} = object
+    [ "field" .= _gsField
+    , "playerRole" .= _gsPlayerRole
+    ]
+    
+makeLenses ''GameSession
+
