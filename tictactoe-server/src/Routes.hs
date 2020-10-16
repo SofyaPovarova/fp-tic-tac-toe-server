@@ -9,28 +9,31 @@ module Routes where
 
 import Prelude hiding (lookup)
 
+import qualified Data.Map.Strict as Map
+import qualified StmContainers.Map as STMMap
+import qualified Data.ByteString.Lazy.Char8 as BS
+
 import Control.Monad.State
 import GHC.Conc (TVar, readTVar, atomically)
 import GHC.Generics (Generic)
 import Game
 import Models
 import Servant
-import StmContainers.Map (Map, insert, lookup)
 import Data.UUID (UUID)
 import Data.UUID.V4 (nextRandom)
 import Data.Text (Text, unpack, pack)
-import qualified Data.ByteString.Lazy.Char8 as BS
 import System.Random (randomIO)
 import Control.Monad.Reader (ReaderT, runReaderT, asks)
 import Lens.Micro ((^.))
+import Data.Maybe (fromMaybe)
 
 data AppState = AppState
-  { appSessions :: TVar (Map String GameSession)
+  { appSessions :: TVar (STMMap.Map String GameSession)
   }
-  
+
 data PlayerRoleParam = PlayerRoleParam Cell | PlayerRoleRandom
   deriving (Eq, Generic)
-  
+
 instance FromHttpApiData PlayerRoleParam where
   parseQueryParam :: Text -> Either Text PlayerRoleParam
   parseQueryParam text =
@@ -50,13 +53,14 @@ type API =
   "startGame"
     :> QueryParam "fieldSize" Int
     :> QueryParam "role" PlayerRoleParam
+    :> QueryParam "winLineLength" Int
     :> Post '[JSON] (SessionResponse GameSession)
   :<|> "move"
     :> Header "Session" String
     :> QueryParam "x" Int
     :> QueryParam "y" Int
     :> Post '[JSON] (SessionResponse GameSession)
- :<|> "session"
+  :<|> "session"
     :> Header "Session" String
     :> Get '[JSON] (SessionResponse GameSession)
 
@@ -73,21 +77,28 @@ server' :: STMServer API
 server' =
   startGameHandler :<|> moveHandler :<|> sessionHandler
 
-startGameHandler :: Maybe Int -> Maybe PlayerRoleParam -> AppM (SessionResponse GameSession)
-startGameHandler mFieldSize mRoleParam =
-  case (mFieldSize, mRoleParam) of
-    (Just fieldSize, Just roleParam) -> do
+startGameHandler ::
+  Maybe Int ->
+  Maybe PlayerRoleParam ->
+  Maybe Int ->
+  AppM (SessionResponse GameSession)
+startGameHandler mFieldSizeParam mRoleParam mWinLineLengthParam =
+  case (mFieldSizeParam, mRoleParam) of
+    (Just fieldSizeParam, Just roleParam) -> do
       sessionId <- liftIO generateRandomSessionId
       playerRole <- liftIO $ roleParamToRole roleParam
-      case (emptyField fieldSize playerRole) of
+      case (emptyField fieldSizeParam playerRole) of
         Left err -> throwError $ err400 {errBody = BS.pack err}
         Right field -> do
-          let gameSession = 
+          let winLineLength = fromMaybe 3 mWinLineLengthParam
+          let gameSession =
                 GameSession
                   { _gsField = field
                   , _gsPlayerRole = playerRole
+                  , _gsGameResult = Nothing
+                  , _gsWinLineLength = winLineLength
                   }
-          _ <- getSessionMap >>= liftIO . atomically . insert gameSession sessionId
+          _ <- getSessionMap >>= liftIO . atomically . STMMap.insert gameSession sessionId
           returnWithSession sessionId $ gameSession
     _ -> throwError $ err400 {errBody = "Field size and role should be specified"}
 
@@ -95,47 +106,81 @@ generateRandomSessionId :: IO String
 generateRandomSessionId = (nextRandom :: IO UUID) >>= return . show
 
 roleParamToRole :: PlayerRoleParam -> IO Cell
-roleParamToRole = 
+roleParamToRole =
   \case
     PlayerRoleParam cell -> return cell
     PlayerRoleRandom -> do
       randomNumber <- randomIO :: IO Double
       return $ if randomNumber <= 0.5 then X else O
-    
-moveHandler :: 
-  Maybe String -> 
-  Maybe Int -> 
-  Maybe Int -> 
+
+moveHandler ::
+  Maybe String ->
+  Maybe Int ->
+  Maybe Int ->
   AppM (SessionResponse GameSession)
 moveHandler mSessionId mX mY =
-  case (mSessionId, mX, mY) of 
+  case (mSessionId, mX, mY) of
     (Nothing, _, _) -> throwError err404
     (Just sessionId, Just x, Just y) -> do
       gameSession <- requireSession sessionId
-      
+      let winLineLength = gameSession^.gsWinLineLength
+
       let mPlayerMoveField = move x y (gameSession^.gsPlayerRole) (gameSession^.gsField)
-      playerMoveField <- 
+      playerMoveField <-
         case mPlayerMoveField of
           Left CellNotEmptyError -> throwError $ err400 {errBody = "Cell is not empty"}
           Left OutOfBoundsError -> throwError $ err400 {errBody = "Attempt to move out of bounds"}
           Right newField -> return newField
+
+      let wasWin = checkWinAfterMove (x, y) playerMoveField winLineLength
+
+      let newField =
+            case wasWin of
+              Just gameResult -> gameSession
+                                   { _gsField = playerMoveField
+                                   , _gsGameResult = Just gameResult
+                                   }
+              Nothing -> do
+                let mComputerMoveField = computerMakeMove playerMoveField
+                case mComputerMoveField of
+                  Nothing -> gameSession
+                               { _gsField = playerMoveField
+                               , _gsGameResult = Just Draw
+                               }
+                  Just (ComputerMoveResult computerMove computerMoveField) -> do
+                    let wasWinComputer = checkWinAfterMove computerMove computerMoveField winLineLength
+                    case wasWinComputer of
+                      Just compGameResult -> gameSession
+                                               { _gsField = computerMoveField
+                                               , _gsGameResult = Just compGameResult
+                                               }
+                      Nothing -> do
+                        let hasEmptyCell =
+                             (Map.size $ computerMoveField^.fieldCells) /=
+                             ((computerMoveField^.fieldSize) ^ (2 :: Int))
       
-      let mComputerMoveField = undefined
+                        gameSession
+                          { _gsField = computerMoveField
+                          , _gsGameResult = if hasEmptyCell then Nothing else Just Draw
+                          }
+                    
+      getSessionMap >>= liftIO . atomically . (STMMap.insert newField sessionId)
+      returnWithSession sessionId $ newField
       
-      undefined
-  
+    _ -> throwError err400
+
 sessionHandler :: Maybe String -> AppM (SessionResponse GameSession)
 sessionHandler =
   \case
     Just sessionId -> requireSession sessionId >>= returnWithSession sessionId
-    _ -> throwError err404  
+    _ -> throwError err404
 
 
-getSessionMap :: AppM (Map String GameSession)
+getSessionMap :: AppM (STMMap.Map String GameSession)
 getSessionMap = asks appSessions >>= liftIO . atomically . readTVar
-  
+
 getSession :: String -> AppM (Maybe GameSession)
-getSession sessionId = getSessionMap >>= liftIO . atomically . lookup sessionId
+getSession sessionId = getSessionMap >>= liftIO . atomically . STMMap.lookup sessionId
 
 requireSession :: String -> AppM GameSession
 requireSession sessionId = do

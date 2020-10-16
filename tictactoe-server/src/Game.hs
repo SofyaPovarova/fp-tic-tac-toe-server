@@ -1,11 +1,20 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Game where
+module Game 
+  ( GameError(..)
+  , ComputerMoveResult(..)
+  , emptyField
+  , checkWinAfterMove
+  , move
+  , computerMakeMove
+  ) where
 
 import Models
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict ((!))
 import Lens.Micro ((.~), (^.))
+
+data ComputerMoveResult = ComputerMoveResult (Int, Int) Field 
 
 data GameError = CellNotEmptyError | OutOfBoundsError
 
@@ -21,26 +30,34 @@ emptyField size playerRole
       where
         center = size `div` 2  
 
-checkWinAfterMove :: Int -> Int -> Field -> Maybe Cell
-checkWinAfterMove x y field = do
-  let cell = (field^.fieldCells) ! (x, y)
-  let xs = [x-2..x+2]
-  let ys = [y-2..y+2]
-  let row = zip (repeat y) xs  
-  let column = zip ys (repeat x)
-  let leftDiagonal = zip xs ys
-  let rightDiagonal = zip xs (reverse ys)
-  let win = any check [row, column, leftDiagonal, rightDiagonal]
-  if win then Just cell else Nothing
-    where
-      check :: [(Int, Int)] -> Bool
-      check indices = any (\p -> checkWinCondition (slice p indices) field) $ zip [0..2] [2..4]
+checkWinAfterMove :: (Int, Int) -> Field -> Int -> Maybe GameResult
+checkWinAfterMove (x, y) field lineLength
+  | lineLength <= 1 = Nothing
+  | otherwise = do
+      let cell = (field^.fieldCells) ! (x, y)
+      let lookupRange = lineLength - 1
+      let xs = [x - lookupRange .. x + lookupRange]
+      let ys = [y - lookupRange .. y + lookupRange]
+      let row = zip (repeat y) xs  
+      let column = zip ys (repeat x)
+      let leftDiagonal = zip xs ys
+      let rightDiagonal = zip xs (reverse ys)
+      let win = any (check lookupRange) [row, column, leftDiagonal, rightDiagonal]
+      if win then Just (toGameResult cell) else Nothing
+        where
+          check :: Int -> [(Int, Int)] -> Bool
+          check lookupRange indices = 
+            any (\range -> checkWinCondition (slice range indices) field) $
+              zip [0..lookupRange] [lookupRange..lookupRange * 2]
  
 checkWinCondition :: [(Int, Int)] -> Field -> Bool
 checkWinCondition indices Field{_fieldCells = cells} =
   case traverse (`Map.lookup` cells) indices of
     Just cs -> all (== head cs) cs
     Nothing -> False
+
+computerMakeMove :: Field -> Maybe ComputerMoveResult
+computerMakeMove field = Just $ ComputerMoveResult (0, 0) field
 
 move :: Int -> Int -> Cell -> Field -> Either GameError Field
 move x y cell field@(Field cells size)

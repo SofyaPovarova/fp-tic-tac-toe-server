@@ -3,23 +3,50 @@
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Models where
 
 import Lens.Micro.TH
 import GHC.Generics
 import Data.Aeson
+import Data.Text
 import qualified Data.Map as Map
+
+
+mapToJson :: (Show a, Show b) => Map.Map a b -> Value
+mapToJson map' = object $ Prelude.map (\(k, v) -> (pack $ show k) .= show v) (Map.assocs map')
 
 
 data Cell = X | O
   deriving (Eq, Generic)
 
 instance Show Cell where
-  show X = "x"
-  show O = "o"
+  show = \case
+    X -> "x"
+    O -> "o"
 
-instance ToJSON Cell
+instance ToJSON Cell where
+  toJSON = Data.Aeson.String . pack . show
+
+
+data GameResult = CrossesWin | NoughtsWin | Draw
+  deriving (Eq, Generic)
+
+instance Show GameResult where
+    show = \case
+      CrossesWin -> "x"
+      NoughtsWin -> "o"
+      Draw -> "draw"
+
+instance ToJSON GameResult where
+  toJSON = Data.Aeson.String . pack . show
+
+toGameResult :: Cell -> GameResult
+toGameResult =
+  \case
+    X -> CrossesWin
+    O -> NoughtsWin
 
 
 data Field = Field
@@ -30,15 +57,16 @@ data Field = Field
 makeLenses ''Field
 
 instance ToJSON Field where
-  toJSON Field{..} = object
-    [ "field" .= _fieldCells
-    , "size" .= _fieldSize
-    ] 
-
+  toJSON field = object
+    [ "cells" .= _fieldCells field
+    , "size" .= _fieldSize field
+    ]  
 
 data GameSession = GameSession
   { _gsField :: Field
   , _gsPlayerRole :: Cell
+  , _gsGameResult :: Maybe GameResult
+  , _gsWinLineLength :: Int
   } deriving (Generic)
 
 
@@ -46,6 +74,7 @@ instance ToJSON GameSession where
   toJSON GameSession{..} = object
     [ "field" .= _gsField
     , "playerRole" .= _gsPlayerRole
+    , "gameResult" .= _gsGameResult
     ]
     
 makeLenses ''GameSession
