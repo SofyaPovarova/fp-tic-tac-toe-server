@@ -12,7 +12,9 @@ module Game
 import Models
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict ((!))
+import Data.List ((\\))
 import Lens.Micro ((.~), (^.))
+import System.Random (randomRIO)
 
 data ComputerMoveResult = ComputerMoveResult (Int, Int) Field 
 
@@ -56,8 +58,23 @@ checkWinCondition indices Field{_fieldCells = cells} =
     Just cs -> all (== head cs) cs
     Nothing -> False
 
-computerMakeMove :: Field -> Maybe ComputerMoveResult
-computerMakeMove field = Just $ ComputerMoveResult (0, 0) field
+computerMakeMove :: Field -> Cell -> IO (Maybe ComputerMoveResult)
+computerMakeMove field cell = do
+  let range = [0 .. field^.fieldSize - 1]
+  let indices = [(x, y) | x <- range, y <- range]
+  let cells = Map.keys $ field^.fieldCells
+  let freeCells = indices \\ cells
+  let freeCellsSize = length freeCells
+ 
+  case freeCellsSize of
+    0 -> return Nothing
+    _ -> do
+      randomIndex <- randomRIO (0, freeCellsSize - 1)
+      let (x, y) = freeCells !! randomIndex
+      return $ case move x y cell field of
+        Right newField -> Just $ ComputerMoveResult (x, y) newField
+        Left _ -> Nothing
+        
 
 move :: Int -> Int -> Cell -> Field -> Either GameError Field
 move x y cell field@(Field cells size)

@@ -134,39 +134,44 @@ moveHandler mSessionId mX mY =
 
       let wasWin = checkWinAfterMove (x, y) playerMoveField winLineLength
 
-      let newField =
-            case wasWin of
-              Just gameResult -> gameSession
-                                   { _gsField = playerMoveField
-                                   , _gsGameResult = Just gameResult
-                                   }
-              Nothing -> do
-                let mComputerMoveField = computerMakeMove playerMoveField
-                case mComputerMoveField of
-                  Nothing -> gameSession
-                               { _gsField = playerMoveField
-                               , _gsGameResult = Just Draw
-                               }
-                  Just (ComputerMoveResult computerMove computerMoveField) -> do
-                    let wasWinComputer = checkWinAfterMove computerMove computerMoveField winLineLength
-                    case wasWinComputer of
-                      Just compGameResult -> gameSession
-                                               { _gsField = computerMoveField
-                                               , _gsGameResult = Just compGameResult
-                                               }
-                      Nothing -> do
-                        let hasEmptyCell =
-                             (Map.size $ computerMoveField^.fieldCells) /=
-                             ((computerMoveField^.fieldSize) ^ (2 :: Int))
-      
-                        gameSession
-                          { _gsField = computerMoveField
-                          , _gsGameResult = if hasEmptyCell then Nothing else Just Draw
-                          }
-                    
+      newField <-
+        case wasWin of
+          Just gameResult -> return gameSession
+                                { _gsField = playerMoveField
+                                , _gsGameResult = Just gameResult
+                                }
+          Nothing -> do
+            let compCell =
+                  case gameSession^.gsPlayerRole of
+                    X -> O
+                    O -> X
+
+            mComputerMoveField <- liftIO $ computerMakeMove playerMoveField compCell
+            return $ case mComputerMoveField of
+              Nothing -> gameSession
+                            { _gsField = playerMoveField
+                            , _gsGameResult = Just Draw
+                            }
+              Just (ComputerMoveResult computerMove computerMoveField) -> do
+                let wasWinComputer = checkWinAfterMove computerMove computerMoveField winLineLength
+                case wasWinComputer of
+                  Just compGameResult -> gameSession
+                                            { _gsField = computerMoveField
+                                            , _gsGameResult = Just compGameResult
+                                            }
+                  Nothing -> do
+                    let hasEmptyCell =
+                          (Map.size $ computerMoveField^.fieldCells) /=
+                          ((computerMoveField^.fieldSize) ^ (2 :: Int))
+
+                    gameSession
+                      { _gsField = computerMoveField
+                      , _gsGameResult = if hasEmptyCell then Nothing else Just Draw
+                      }
+
       getSessionMap >>= liftIO . atomically . (STMMap.insert newField sessionId)
       returnWithSession sessionId $ newField
-      
+
     _ -> throwError err400
 
 sessionHandler :: Maybe String -> AppM (SessionResponse GameSession)
