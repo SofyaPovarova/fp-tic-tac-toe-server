@@ -133,7 +133,7 @@ moveHandler mSessionId mX mY =
           Right newField -> return newField
 
       let wasWin = checkWinAfterMove (x, y) playerMoveField winLineLength
-
+      
       newField <-
         case wasWin of
           Just gameResult -> return gameSession
@@ -179,7 +179,6 @@ sessionHandler =
   \case
     Just sessionId -> requireSession sessionId >>= returnWithSession sessionId
     _ -> throwError err404
-
 
 getSessionMap :: AppM (STMMap.Map String GameSession)
 getSessionMap = asks appSessions >>= liftIO . atomically . readTVar

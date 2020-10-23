@@ -7,16 +7,12 @@
 
 module Models where
 
+import qualified Data.Map as Map
+
 import Lens.Micro.TH
 import GHC.Generics
 import Data.Aeson
-import Data.Text
-import qualified Data.Map as Map
-
-
-mapToJson :: (Show a, Show b) => Map.Map a b -> Value
-mapToJson map' = object $ Prelude.map (\(k, v) -> (pack $ show k) .= show v) (Map.assocs map')
-
+import Data.Text (pack)
 
 data Cell = X | O
   deriving (Eq, Generic)
@@ -28,7 +24,6 @@ instance Show Cell where
 
 instance ToJSON Cell where
   toJSON = Data.Aeson.String . pack . show
-
 
 data GameResult = CrossesWin | NoughtsWin | Draw
   deriving (Eq, Generic)
