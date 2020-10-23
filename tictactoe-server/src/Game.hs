@@ -9,12 +9,14 @@ module Game
   , computerMakeMove
   ) where
 
-import Models
 import qualified Data.Map.Strict as Map
+
 import Data.Map.Strict ((!))
 import Data.List ((\\))
 import Lens.Micro ((.~), (^.))
 import System.Random (randomRIO)
+
+import Models
 
 data ComputerMoveResult = ComputerMoveResult (Int, Int) Field
 

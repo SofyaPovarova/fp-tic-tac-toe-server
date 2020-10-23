@@ -16,8 +16,6 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 import Control.Monad.State
 import GHC.Conc (TVar, readTVar, atomically)
 import GHC.Generics (Generic)
-import Game
-import Models
 import Servant
 import Data.UUID (UUID)
 import Data.UUID.V4 (nextRandom)
@@ -26,6 +24,9 @@ import System.Random (randomIO)
 import Control.Monad.Reader (ReaderT, runReaderT, asks)
 import Lens.Micro ((^.))
 import Data.Maybe (fromMaybe)
+
+import Game
+import Models
 
 data AppState = AppState
   { appSessions :: TVar (STMMap.Map String GameSession)
