@@ -56,3 +56,16 @@ executable tictactoe-server
                      , wai
                      , warp
   default-language:    Haskell2010
+
+test-suite hw3-test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Spec.hs
+  other-modules:       GameSpec
+  build-depends:       base
+                     , tictactoe-server
+                     , hspec
+                     , containers
+                     , mtl
+  ghc-options:         -Wall -Werror -threaded -rtsopts -with-rtsopts=-N
+  default-language:    Haskell2010

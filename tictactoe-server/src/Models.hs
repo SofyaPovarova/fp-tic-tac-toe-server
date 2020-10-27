@@ -47,6 +47,7 @@ data Field = Field
   { _fieldCells :: Map.Map (Int, Int) Cell
   , _fieldSize :: Int
   }
+  deriving (Eq, Show)
   
 makeLenses ''Field
 

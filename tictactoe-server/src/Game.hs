@@ -19,8 +19,10 @@ import System.Random (randomRIO)
 import Models
 
 data ComputerMoveResult = ComputerMoveResult (Int, Int) Field
+  deriving (Eq, Show)
 
 data GameError = CellNotEmptyError | OutOfBoundsError
+  deriving (Eq, Show)
 
 emptyField :: Int -> Cell -> Either String Field
 emptyField size playerRole
